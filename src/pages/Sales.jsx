@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
   ShoppingCart, 
   Scan, 
@@ -14,24 +15,72 @@ import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import FormField from '../components/ui/FormField';
 import Modal from '../components/ui/Modal';
-import useStore from '../store/useStore';
+import { productsApi, salesApi } from '../services/api';
 import toast from 'react-hot-toast';
 
 const Sales = () => {
-  const { 
-    products, 
-    cart, 
-    addToCart, 
-    removeFromCart, 
-    updateCartQuantity, 
-    clearCart 
-  } = useStore();
+  const queryClient = useQueryClient();
+  const [cart, setCart] = useState([]);
 
   const [skuInput, setSkuInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('cash');
+
+  // Fetch products
+  const { data: productsData, isLoading, error } = useQuery({
+    queryKey: ['products'],
+    queryFn: () => productsApi.getProducts(),
+  });
+
+  // Create sale mutation
+  const createSaleMutation = useMutation({
+    mutationFn: salesApi.createSale,
+    onSuccess: () => {
+      queryClient.invalidateQueries(['sales']);
+      setCart([]);
+      setIsPaymentModalOpen(false);
+      setPaymentMethod('cash');
+      toast.success('Vente enregistrée avec succès !');
+    },
+    onError: (error) => {
+      toast.error(`Erreur: ${error.message}`);
+    },
+  });
+
+  const products = productsData?.data?.products || [];
+
+  // Cart management functions
+  const addToCart = (product, quantity = 1) => {
+    const existingItem = cart.find(item => item.id === product.id);
+    
+    if (existingItem) {
+      setCart(cart.map(item =>
+        item.id === product.id
+          ? { ...item, quantity: item.quantity + quantity }
+          : item
+      ));
+    } else {
+      setCart([...cart, { ...product, quantity }]);
+    }
+  };
+
+  const removeFromCart = (productId) => {
+    setCart(cart.filter(item => item.id !== productId));
+  };
+
+  const updateCartQuantity = (productId, quantity) => {
+    if (quantity <= 0) {
+      removeFromCart(productId);
+      return;
+    }
+    setCart(cart.map(item =>
+      item.id === productId ? { ...item, quantity } : item
+    ));
+  };
+
+  const clearCart = () => setCart([]);
 
   const filteredProducts = products.filter(product =>
     product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -64,14 +113,40 @@ const Sales = () => {
       return;
     }
 
-    // Simuler le traitement du paiement
-    setTimeout(() => {
-      clearCart();
-      setIsPaymentModalOpen(false);
-      setPaymentMethod('cash');
-      toast.success('Vente enregistrée avec succès !');
-    }, 1000);
+    const saleData = {
+      items: cart.map(item => ({
+        productId: item.id,
+        quantity: item.quantity,
+        unitPrice: item.price
+      })),
+      paymentMethod: paymentMethod,
+      cashier: 'Current User', // This should come from auth context
+      customerId: null,
+      discount: 0,
+      notes: ''
+    };
+
+    createSaleMutation.mutate(saleData);
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <p className="text-red-600 dark:text-red-400">Erreur lors du chargement des produits</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">{error.message}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
@@ -260,6 +335,7 @@ const Sales = () => {
                 <Button
                   className="w-full"
                   size="lg"
+                  loading={createSaleMutation.isLoading}
                   onClick={() => setIsPaymentModalOpen(true)}
                 >
                   <CreditCard className="w-4 h-4 mr-2" />
@@ -394,6 +470,7 @@ const Sales = () => {
             </Button>
             <Button
               className="flex-1"
+              loading={createSaleMutation.isLoading}
               onClick={handleProcessPayment}
             >
               Confirmer le paiement

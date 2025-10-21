@@ -18,20 +18,66 @@ import {
   Legend,
   ResponsiveContainer
 } from 'recharts';
-import mockApi from '../services/api';
-import useStore from '../store/useStore';
+import { reportsApi, productsApi } from '../services/api';
 
 const Reports = () => {
-  const { products } = useStore();
   const [period, setPeriod] = useState('30d');
 
-  const { data: salesData, isLoading } = useQuery({
+  // Helper functions for date formatting
+  const getDateDaysAgo = (days) => {
+    const date = new Date();
+    date.setDate(date.getDate() - days);
+    return date.toISOString().split('T')[0];
+  };
+
+  const getTodayDate = () => {
+    return new Date().toISOString().split('T')[0];
+  };
+
+  const getDaysFromPeriod = (period) => {
+    switch (period) {
+      case '7d': return 7;
+      case '30d': return 30;
+      case '90d': return 90;
+      default: return 30;
+    }
+  };
+
+  // Fetch sales data
+  const { data: salesData, isLoading: salesLoading, error: salesError } = useQuery({
     queryKey: ['sales-data', period],
-    queryFn: () => mockApi.getSalesData(period)
+    queryFn: () => reportsApi.getSalesReport({
+      from: getDateDaysAgo(getDaysFromPeriod(period)),
+      to: getTodayDate(),
+      groupBy: 'day'
+    })
   });
 
+  // Fetch products for category analysis
+  const { data: productsData, isLoading: productsLoading } = useQuery({
+    queryKey: ['products'],
+    queryFn: () => productsApi.getProducts(),
+  });
+
+  // Fetch stock report
+  const { data: stockReportData, isLoading: stockLoading } = useQuery({
+    queryKey: ['stock-report'],
+    queryFn: () => reportsApi.getStockReport(),
+  });
+
+  const products = productsData?.data?.products || [];
+  const salesReportData = salesData?.data || {};
+  const stockReport = stockReportData?.data || {};
+
   // Generate category data
-  const categoryData = products.reduce((acc, product) => {
+  const categoryData = (salesReportData.categoryBreakdown || []).map(category => ({
+    category: category.category,
+    value: category.sales,
+    products: products.filter(p => p.category === category.category).length
+  }));
+
+  // Fallback category data from products if no sales data
+  const fallbackCategoryData = products.reduce((acc, product) => {
     const existing = acc.find(item => item.category === product.category);
     if (existing) {
       existing.value += product.stock * product.price;
@@ -46,8 +92,10 @@ const Reports = () => {
     return acc;
   }, []);
 
+  const finalCategoryData = categoryData.length > 0 ? categoryData : fallbackCategoryData;
+
   // Generate top products data
-  const topProducts = products
+  const topProducts = (stockReport.stockLevels || products)
     .sort((a, b) => (b.stock * b.price) - (a.stock * a.price))
     .slice(0, 5)
     .map(product => ({
@@ -64,13 +112,27 @@ const Reports = () => {
     { value: '90d', label: '3 derniers mois' }
   ];
 
-  if (isLoading) {
+  if (salesLoading || productsLoading || stockLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
     );
   }
+
+  if (salesError) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <p className="text-red-600 dark:text-red-400">Erreur lors du chargement des rapports</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">{salesError.message}</p>
+        </div>
+      </div>
+    );
+  }
+
+  const dailySalesData = salesReportData.dailyData || [];
+  const summary = salesReportData.summary || {};
 
   return (
     <div className="space-y-6">
@@ -106,7 +168,7 @@ const Reports = () => {
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Ventes totales</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                {salesData?.reduce((sum, day) => sum + day.sales, 0)?.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' }) || '€0'}
+                {(summary.totalSales || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
               </p>
             </div>
             <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20">
@@ -120,7 +182,7 @@ const Reports = () => {
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Transactions</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                {salesData?.reduce((sum, day) => sum + day.transactions, 0) || 0}
+                {summary.totalTransactions || 0}
               </p>
             </div>
             <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/20">
@@ -134,10 +196,7 @@ const Reports = () => {
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Ticket moyen</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                {salesData && salesData.length > 0 ?
-                  (salesData.reduce((sum, day) => sum + day.sales, 0) / salesData.reduce((sum, day) => sum + day.transactions, 0)).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })
-                  : '€0'
-                }
+                {(summary.averageTransaction || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
               </p>
             </div>
             <div className="p-3 rounded-lg bg-orange-50 dark:bg-orange-900/20">
@@ -151,7 +210,7 @@ const Reports = () => {
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Catégories</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                {categoryData.length}
+                {finalCategoryData.length}
               </p>
             </div>
             <div className="p-3 rounded-lg bg-purple-50 dark:bg-purple-900/20">
@@ -172,7 +231,7 @@ const Reports = () => {
           </Card.Header>
           <Card.Content>
             <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={salesData}>
+              <LineChart data={dailySalesData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="date" />
                 <YAxis />
@@ -202,7 +261,7 @@ const Reports = () => {
           </Card.Header>
           <Card.Content>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={salesData}>
+              <BarChart data={dailySalesData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="date" />
                 <YAxis />
@@ -230,7 +289,7 @@ const Reports = () => {
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
-                  data={categoryData}
+                  data={finalCategoryData}
                   cx="50%"
                   cy="50%"
                   labelLine={false}
@@ -239,7 +298,7 @@ const Reports = () => {
                   fill="#8884d8"
                   dataKey="value"
                 >
-                  {categoryData.map((entry, index) => (
+                  {finalCategoryData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
