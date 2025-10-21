@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Search, CreditCard as Edit2, Trash2, Package, Eye } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -7,12 +7,11 @@ import Table from '../components/ui/Table';
 import Modal from '../components/ui/Modal';
 import FormField from '../components/ui/FormField';
 import { useForm } from 'react-hook-form';
-import useStore from '../store/useStore';
-import mockApi from '../services/api';
+import { productsApi } from '../services/api';
 import toast from 'react-hot-toast';
 
 const Products = () => {
-  const { products, addProduct, updateProduct, deleteProduct } = useStore();
+  const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -20,6 +19,52 @@ const Products = () => {
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm();
 
+  // Fetch products
+  const { data: productsData, isLoading, error } = useQuery({
+    queryKey: ['products', { search: searchTerm, category: selectedCategory }],
+    queryFn: () => productsApi.getProducts({
+      search: searchTerm || undefined,
+      category: selectedCategory === 'all' ? undefined : selectedCategory,
+    }),
+  });
+
+  // Mutations
+  const createProductMutation = useMutation({
+    mutationFn: productsApi.createProduct,
+    onSuccess: () => {
+      queryClient.invalidateQueries(['products']);
+      toast.success('Produit ajouté avec succès');
+      closeModal();
+    },
+    onError: (error) => {
+      toast.error(`Erreur: ${error.message}`);
+    },
+  });
+
+  const updateProductMutation = useMutation({
+    mutationFn: ({ id, updates }) => productsApi.updateProduct(id, updates),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['products']);
+      toast.success('Produit mis à jour avec succès');
+      closeModal();
+    },
+    onError: (error) => {
+      toast.error(`Erreur: ${error.message}`);
+    },
+  });
+
+  const deleteProductMutation = useMutation({
+    mutationFn: productsApi.deleteProduct,
+    onSuccess: () => {
+      queryClient.invalidateQueries(['products']);
+      toast.success('Produit supprimé avec succès');
+    },
+    onError: (error) => {
+      toast.error(`Erreur: ${error.message}`);
+    },
+  });
+
+  const products = productsData?.data?.products || [];
   const categories = ['all', ...new Set(products.map(p => p.category))];
 
   const filteredProducts = products.filter(product => {
@@ -47,10 +92,18 @@ const Products = () => {
 
   const onSubmit = (data) => {
     if (editingProduct) {
-      updateProduct(editingProduct.id, data);
-      toast.success('Produit mis à jour avec succès');
+      updateProductMutation.mutate({
+        id: editingProduct.id,
+        updates: {
+          ...data,
+          price: parseFloat(data.price),
+          cost: parseFloat(data.cost),
+          stock: parseInt(data.stock),
+          minStock: parseInt(data.minStock),
+        }
+      });
     } else {
-      addProduct({
+      createProductMutation.mutate({
         ...data,
         price: parseFloat(data.price),
         cost: parseFloat(data.cost),
@@ -58,17 +111,33 @@ const Products = () => {
         minStock: parseInt(data.minStock),
         image: data.image || 'https://images.pexels.com/photos/264636/pexels-photo-264636.jpeg?auto=compress&cs=tinysrgb&w=400'
       });
-      toast.success('Produit ajouté avec succès');
     }
-    closeModal();
   };
 
   const handleDelete = (product) => {
     if (window.confirm(`Êtes-vous sûr de vouloir supprimer "${product.name}" ?`)) {
-      deleteProduct(product.id);
-      toast.success('Produit supprimé avec succès');
+      deleteProductMutation.mutate(product.id);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <p className="text-red-600 dark:text-red-400">Erreur lors du chargement des produits</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">{error.message}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -293,7 +362,10 @@ const Products = () => {
             <Button type="button" variant="outline" onClick={closeModal}>
               Annuler
             </Button>
-            <Button type="submit">
+            <Button 
+              type="submit" 
+              loading={createProductMutation.isLoading || updateProductMutation.isLoading}
+            >
               {editingProduct ? 'Mettre à jour' : 'Créer'}
             </Button>
           </div>

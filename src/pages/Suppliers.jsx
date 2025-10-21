@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Search, CreditCard as Edit2, Trash2, Phone, Mail, MapPin } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -6,16 +7,62 @@ import Table from '../components/ui/Table';
 import Modal from '../components/ui/Modal';
 import FormField from '../components/ui/FormField';
 import { useForm } from 'react-hook-form';
-import useStore from '../store/useStore';
+import { suppliersApi } from '../services/api';
 import toast from 'react-hot-toast';
 
 const Suppliers = () => {
-  const { suppliers, addSupplier, updateSupplier, deleteSupplier } = useStore();
+  const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm();
+
+  // Fetch suppliers
+  const { data: suppliersData, isLoading, error } = useQuery({
+    queryKey: ['suppliers', { search: searchTerm }],
+    queryFn: () => suppliersApi.getSuppliers({
+      search: searchTerm || undefined,
+    }),
+  });
+
+  // Mutations
+  const createSupplierMutation = useMutation({
+    mutationFn: suppliersApi.createSupplier,
+    onSuccess: () => {
+      queryClient.invalidateQueries(['suppliers']);
+      toast.success('Fournisseur ajouté avec succès');
+      closeModal();
+    },
+    onError: (error) => {
+      toast.error(`Erreur: ${error.message}`);
+    },
+  });
+
+  const updateSupplierMutation = useMutation({
+    mutationFn: ({ id, updates }) => suppliersApi.updateSupplier(id, updates),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['suppliers']);
+      toast.success('Fournisseur mis à jour avec succès');
+      closeModal();
+    },
+    onError: (error) => {
+      toast.error(`Erreur: ${error.message}`);
+    },
+  });
+
+  const deleteSupplierMutation = useMutation({
+    mutationFn: suppliersApi.deleteSupplier,
+    onSuccess: () => {
+      queryClient.invalidateQueries(['suppliers']);
+      toast.success('Fournisseur supprimé avec succès');
+    },
+    onError: (error) => {
+      toast.error(`Erreur: ${error.message}`);
+    },
+  });
+
+  const suppliers = suppliersData?.data || [];
 
   const filteredSuppliers = suppliers.filter(supplier =>
     supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -41,21 +88,39 @@ const Suppliers = () => {
 
   const onSubmit = (data) => {
     if (editingSupplier) {
-      updateSupplier(editingSupplier.id, data);
-      toast.success('Fournisseur mis à jour avec succès');
+      updateSupplierMutation.mutate({
+        id: editingSupplier.id,
+        updates: data
+      });
     } else {
-      addSupplier(data);
-      toast.success('Fournisseur ajouté avec succès');
+      createSupplierMutation.mutate(data);
     }
-    closeModal();
   };
 
   const handleDelete = (supplier) => {
     if (window.confirm(`Êtes-vous sûr de vouloir supprimer "${supplier.name}" ?`)) {
-      deleteSupplier(supplier.id);
-      toast.success('Fournisseur supprimé avec succès');
+      deleteSupplierMutation.mutate(supplier.id);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <p className="text-red-600 dark:text-red-400">Erreur lors du chargement des fournisseurs</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">{error.message}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -231,7 +296,10 @@ const Suppliers = () => {
             <Button type="button" variant="outline" onClick={closeModal}>
               Annuler
             </Button>
-            <Button type="submit">
+            <Button 
+              type="submit" 
+              loading={createSupplierMutation.isLoading || updateSupplierMutation.isLoading}
+            >
               {editingSupplier ? 'Mettre à jour' : 'Créer'}
             </Button>
           </div>

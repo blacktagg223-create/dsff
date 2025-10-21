@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Package, TriangleAlert as AlertTriangle, TrendingUp, TrendingDown, CreditCard as Edit2 } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -6,11 +7,11 @@ import Table from '../components/ui/Table';
 import Modal from '../components/ui/Modal';
 import FormField from '../components/ui/FormField';
 import { useForm } from 'react-hook-form';
-import useStore from '../store/useStore';
+import { stockApi, productsApi } from '../services/api';
 import toast from 'react-hot-toast';
 
 const Stock = () => {
-  const { products, updateStock } = useStore();
+  const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
 
@@ -19,10 +20,49 @@ const Stock = () => {
   const adjustmentType = watch('adjustmentType', 'add');
   const quantity = watch('quantity', 0);
 
-  const lowStockProducts = products.filter(p => p.stock <= p.minStock);
-  const outOfStockProducts = products.filter(p => p.stock === 0);
-  const totalProducts = products.length;
-  const totalStockValue = products.reduce((total, product) => total + (product.stock * product.cost), 0);
+  // Fetch stock data
+  const { data: stockData, isLoading, error } = useQuery({
+    queryKey: ['stock'],
+    queryFn: stockApi.getStock,
+  });
+
+  // Fetch products for additional info
+  const { data: productsData } = useQuery({
+    queryKey: ['products'],
+    queryFn: () => productsApi.getProducts(),
+  });
+
+  // Stock adjustment mutation
+  const adjustStockMutation = useMutation({
+    mutationFn: stockApi.adjustStock,
+    onSuccess: () => {
+      queryClient.invalidateQueries(['stock']);
+      queryClient.invalidateQueries(['products']);
+      toast.success('Stock ajusté avec succès');
+      closeModal();
+    },
+    onError: (error) => {
+      toast.error(`Erreur: ${error.message}`);
+    },
+  });
+
+  const stockItems = stockData?.data?.stockItems || [];
+  const stockSummary = stockData?.data?.summary || {};
+  const products = productsData?.data?.products || [];
+
+  // Merge stock data with product data for display
+  const enrichedStockItems = stockItems.map(stockItem => {
+    const product = products.find(p => p.id === stockItem.productId);
+    return {
+      ...stockItem,
+      ...product,
+      stock: stockItem.currentStock,
+      minStock: stockItem.minStock,
+    };
+  });
+
+  const lowStockProducts = enrichedStockItems.filter(p => p.currentStock <= p.minStock);
+  const outOfStockProducts = enrichedStockItems.filter(p => p.currentStock === 0);
 
   const openStockModal = (product) => {
     setSelectedProduct(product);
@@ -37,25 +77,45 @@ const Stock = () => {
   };
 
   const onSubmit = (data) => {
-    const adjustment = data.adjustmentType === 'add' 
-      ? parseInt(data.quantity) 
-      : -parseInt(data.quantity);
-    
-    updateStock(selectedProduct.id, adjustment);
-    
-    const actionText = data.adjustmentType === 'add' ? 'ajouté' : 'retiré';
-    toast.success(`Stock ${actionText} avec succès`);
-    closeModal();
+    adjustStockMutation.mutate({
+      productId: selectedProduct.productId || selectedProduct.id,
+      adjustmentType: data.adjustmentType,
+      quantity: parseInt(data.quantity),
+      reason: data.reason,
+      reference: `ADJ-${Date.now()}`,
+    });
   };
 
   const getStockStatus = (product) => {
-    if (product.stock === 0) {
+    const currentStock = product.currentStock || product.stock;
+    const minStock = product.minStock;
+    
+    if (currentStock === 0) {
       return { status: 'Rupture', color: 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400' };
-    } else if (product.stock <= product.minStock) {
+    } else if (currentStock <= minStock) {
       return { status: 'Stock faible', color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400' };
     }
     return { status: 'En stock', color: 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' };
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <p className="text-red-600 dark:text-red-400">Erreur lors du chargement du stock</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">{error.message}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -73,7 +133,7 @@ const Stock = () => {
           <Card.Content className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Total Produits</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{totalProducts}</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stockSummary.totalProducts || 0}</p>
             </div>
             <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20">
               <Package className="w-6 h-6 text-blue-600" />
@@ -86,7 +146,7 @@ const Stock = () => {
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Valeur du Stock</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                {totalStockValue.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                {(stockSummary.totalStockValue || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
               </p>
             </div>
             <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/20">
@@ -99,7 +159,7 @@ const Stock = () => {
           <Card.Content className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Stock Faible</p>
-              <p className="text-2xl font-bold text-orange-600">{lowStockProducts.length}</p>
+              <p className="text-2xl font-bold text-orange-600">{stockSummary.lowStockCount || 0}</p>
             </div>
             <div className="p-3 rounded-lg bg-orange-50 dark:bg-orange-900/20">
               <AlertTriangle className="w-6 h-6 text-orange-600" />
@@ -111,7 +171,7 @@ const Stock = () => {
           <Card.Content className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Ruptures</p>
-              <p className="text-2xl font-bold text-red-600">{outOfStockProducts.length}</p>
+              <p className="text-2xl font-bold text-red-600">{stockSummary.outOfStockCount || 0}</p>
             </div>
             <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20">
               <TrendingDown className="w-6 h-6 text-red-600" />
@@ -142,9 +202,9 @@ const Stock = () => {
               </Table.Row>
             </Table.Header>
             <Table.Body>
-              {products.map((product) => {
+              {enrichedStockItems.map((product) => {
                 const { status, color } = getStockStatus(product);
-                const stockValue = product.stock * product.cost;
+                const stockValue = (product.currentStock || product.stock) * (product.cost || 0);
 
                 return (
                   <Table.Row key={product.id}>
@@ -170,7 +230,7 @@ const Stock = () => {
                       </span>
                     </Table.Cell>
                     <Table.Cell className="font-medium text-lg">
-                      {product.stock}
+                      {product.currentStock || product.stock}
                     </Table.Cell>
                     <Table.Cell className="text-gray-600 dark:text-gray-400">
                       {product.minStock}
@@ -211,7 +271,7 @@ const Stock = () => {
             <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
               <p className="text-sm text-gray-600 dark:text-gray-400">Stock actuel:</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                {selectedProduct.stock} unités
+                {selectedProduct.currentStock || selectedProduct.stock} unités
               </p>
             </div>
 
@@ -246,8 +306,8 @@ const Stock = () => {
                 </p>
                 <p className="text-xl font-bold text-blue-700 dark:text-blue-300">
                   {adjustmentType === 'add' 
-                    ? selectedProduct.stock + parseInt(quantity || 0)
-                    : Math.max(0, selectedProduct.stock - parseInt(quantity || 0))
+                    ? (selectedProduct.currentStock || selectedProduct.stock) + parseInt(quantity || 0)
+                    : Math.max(0, (selectedProduct.currentStock || selectedProduct.stock) - parseInt(quantity || 0))
                   } unités
                 </p>
               </div>
@@ -257,7 +317,7 @@ const Stock = () => {
               <Button type="button" variant="outline" onClick={closeModal}>
                 Annuler
               </Button>
-              <Button type="submit">
+              <Button type="submit" loading={adjustStockMutation.isLoading}>
                 Appliquer l'ajustement
               </Button>
             </div>
