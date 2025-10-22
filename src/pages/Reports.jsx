@@ -168,7 +168,7 @@ const Reports = () => {
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Ventes totales</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                {(summary.totalSales || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                {(summary.totalSales || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'XOF' })}
               </p>
             </div>
             <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20">
@@ -196,7 +196,7 @@ const Reports = () => {
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Ticket moyen</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                {(summary.averageTransaction || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                {(summary.averageTransaction || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'XOF' })}
               </p>
             </div>
             <div className="p-3 rounded-lg bg-orange-50 dark:bg-orange-900/20">

@@ -232,7 +232,7 @@ const Products = () => {
                       </Table.Cell>
                       <Table.Cell>{product.category}</Table.Cell>
                       <Table.Cell className="font-medium">
-                        {product.price.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                        {product.price.toLocaleString('fr-FR', { style: 'currency', currency: 'XOF' })}
                       </Table.Cell>
                       <Table.Cell>
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${

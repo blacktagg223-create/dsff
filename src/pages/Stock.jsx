@@ -176,7 +176,7 @@ const Stock = () => {
           <Card.Content className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Ruptures</p>
-              <p className="text-2xl font-bold text-red-600">{stockSummary.outOfStockCount || 0}</p>
+              <p className="text-2xl font-bold text-red-600">{stockSummary.out_of_stock_count || 0}</p>
             </div>
             <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20">
               <TrendingDown className="w-6 h-6 text-red-600" />

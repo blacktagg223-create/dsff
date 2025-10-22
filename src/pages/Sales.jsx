@@ -231,7 +231,7 @@ const Sales = () => {
                   </div>
                   <div className="text-right">
                     <p className="font-semibold text-gray-900 dark:text-gray-100">
-                      {product.price.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                      {product.price.toLocaleString('fr-FR', { style: 'currency', currency: 'XOF' })}
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">Stock: {product.stock}</p>
                   </div>
@@ -277,7 +277,7 @@ const Sales = () => {
                       <div className="flex-1">
                         <p className="font-medium text-gray-900 dark:text-gray-100">{item.name}</p>
                         <p className="text-sm text-gray-500 dark:text-gray-400">
-                          {item.price.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                          {item.price.toLocaleString('fr-FR', { style: 'currency', currency: 'XOF' })}
                         </p>
                       </div>
                       <div className="flex items-center space-x-2">
@@ -314,19 +314,19 @@ const Sales = () => {
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600 dark:text-gray-400">Sous-total:</span>
                     <span className="font-medium text-gray-900 dark:text-gray-100">
-                      {subtotal.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                      {subtotal.toLocaleString('fr-FR', { style: 'currency', currency: 'XOF' })}
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600 dark:text-gray-400">TVA (20%):</span>
                     <span className="font-medium text-gray-900 dark:text-gray-100">
-                      {tax.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                      {tax.toLocaleString('fr-FR', { style: 'currency', currency: 'XOF' })}
                     </span>
                   </div>
                   <div className="flex justify-between text-lg font-bold pt-2 border-t border-gray-200 dark:border-gray-700">
                     <span className="text-gray-900 dark:text-gray-100">Total:</span>
                     <span className="text-gray-900 dark:text-gray-100">
-                      {total.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                      {total.toLocaleString('fr-FR', { style: 'currency', currency: 'XOF' })}
                     </span>
                   </div>
                 </div>
@@ -392,7 +392,7 @@ const Sales = () => {
                 </div>
                 <div className="text-right">
                   <p className="font-semibold text-gray-900 dark:text-gray-100">
-                    {product.price.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                    {product.price.toLocaleString('fr-FR', { style: 'currency', currency: 'XOF' })}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">Stock: {product.stock}</p>
                 </div>
@@ -415,15 +415,15 @@ const Sales = () => {
             <div className="space-y-2">
               <div className="flex justify-between">
                 <span>Articles ({cart.reduce((sum, item) => sum + item.quantity, 0)})</span>
-                <span>{subtotal.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</span>
+                <span>{subtotal.toLocaleString('fr-FR', { style: 'currency', currency: 'XOF' })}</span>
               </div>
               <div className="flex justify-between">
                 <span>TVA (20%)</span>
-                <span>{tax.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</span>
+                <span>{tax.toLocaleString('fr-FR', { style: 'currency', currency: 'XOF' })}</span>
               </div>
               <div className="flex justify-between text-lg font-bold pt-2 border-t border-gray-200 dark:border-gray-600">
                 <span>Total</span>
-                <span>{total.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</span>
+                <span>{total.toLocaleString('fr-FR', { style: 'currency', currency: 'XOF' })}</span>
               </div>
             </div>
           </div>

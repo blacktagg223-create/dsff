@@ -48,7 +48,7 @@ const Dashboard = () => {
   const statCards = [
     {
       title: 'Ventes du jour',
-      value: stats?.data?.sales?.today?.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' }) || '€0',
+      value: stats?.data?.sales?.today?.toLocaleString('fr-FR', { style: 'currency', currency: 'XOF' }) || '€0',
       change: '+12.5%',
       icon: DollarSign,
       color: 'text-emerald-600',
@@ -56,7 +56,7 @@ const Dashboard = () => {
     },
     {
       title: 'Ventes totales',
-      value: stats?.data?.sales?.thisMonth?.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' }) || '€0',
+      value: stats?.data?.sales?.thisMonth?.toLocaleString('fr-FR', { style: 'currency', currency: 'XOF' }) || '€0',
       change: '+8.2%',
       icon: TrendingUp,
       color: 'text-blue-600',
