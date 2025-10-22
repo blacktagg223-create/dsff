@@ -1,5 +1,5 @@
 // API service for SuperMarket ERP
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const API_URL = import.meta.env.VITE_API_URL;
 
 // Helper function to get auth token
 const getAuthToken = () => {
@@ -34,7 +34,7 @@ const handleResponse = async (response) => {
 // Authentication API
 export const authApi = {
   login: async (credentials) => {
-    const response = await fetch(`${API_URL}/api/auth/login`, {
+    const response = await fetch(`${API_URL}/login`, {
       method: 'POST',
       headers: createHeaders(false),
       body: JSON.stringify(credentials),
@@ -43,7 +43,7 @@ export const authApi = {
   },
 
   logout: async () => {
-    const response = await fetch(`${API_URL}/api/auth/logout`, {
+    const response = await fetch(`${API_URL}/logout`, {
       method: 'POST',
       headers: createHeaders(),
     });
@@ -61,21 +61,21 @@ export const productsApi = {
       }
     });
     
-    const response = await fetch(`${API_URL}/api/products?${searchParams}`, {
+    const response = await fetch(`${API_URL}/products?${searchParams}/`, {
       headers: createHeaders(),
     });
     return handleResponse(response);
   },
 
   getProduct: async (id) => {
-    const response = await fetch(`${API_URL}/api/products/${id}`, {
+    const response = await fetch(`${API_URL}/products/${id}/`, {
       headers: createHeaders(),
     });
     return handleResponse(response);
   },
 
   createProduct: async (product) => {
-    const response = await fetch(`${API_URL}/api/products`, {
+    const response = await fetch(`${API_URL}/products/`, {
       method: 'POST',
       headers: createHeaders(),
       body: JSON.stringify(product),
@@ -84,8 +84,8 @@ export const productsApi = {
   },
 
   updateProduct: async (id, updates) => {
-    const response = await fetch(`${API_URL}/api/products/${id}`, {
-      method: 'PUT',
+    const response = await fetch(`${API_URL}/products/${id}/`, {
+      method: 'PATCH',
       headers: createHeaders(),
       body: JSON.stringify(updates),
     });
@@ -93,7 +93,7 @@ export const productsApi = {
   },
 
   deleteProduct: async (id) => {
-    const response = await fetch(`${API_URL}/api/products/${id}`, {
+    const response = await fetch(`${API_URL}/products/${id}/`, {
       method: 'DELETE',
       headers: createHeaders(),
     });
@@ -111,14 +111,14 @@ export const stockApi = {
       }
     });
     
-    const response = await fetch(`${API_URL}/api/stock?${searchParams}`, {
+    const response = await fetch(`${API_URL}/stock?${searchParams}/`, {
       headers: createHeaders(),
     });
     return handleResponse(response);
   },
 
   adjustStock: async (adjustment) => {
-    const response = await fetch(`${API_URL}/api/stock/adjust`, {
+    const response = await fetch(`${API_URL}/stock/adjust/`, {
       method: 'POST',
       headers: createHeaders(),
       body: JSON.stringify(adjustment),
@@ -127,7 +127,7 @@ export const stockApi = {
   },
 
   transferStock: async (transfer) => {
-    const response = await fetch(`${API_URL}/api/stock/transfer`, {
+    const response = await fetch(`${API_URL}/stock/transfer/`, {
       method: 'POST',
       headers: createHeaders(),
       body: JSON.stringify(transfer),
@@ -146,21 +146,21 @@ export const suppliersApi = {
       }
     });
     
-    const response = await fetch(`${API_URL}/api/suppliers?${searchParams}`, {
+    const response = await fetch(`${API_URL}/suppliers?/${searchParams}/`, {
       headers: createHeaders(),
     });
     return handleResponse(response);
   },
 
   getSupplier: async (id) => {
-    const response = await fetch(`${API_URL}/api/suppliers/${id}`, {
+    const response = await fetch(`${API_URL}/suppliers/${id}/`, {
       headers: createHeaders(),
     });
     return handleResponse(response);
   },
 
   createSupplier: async (supplier) => {
-    const response = await fetch(`${API_URL}/api/suppliers`, {
+    const response = await fetch(`${API_URL}/suppliers/`, {
       method: 'POST',
       headers: createHeaders(),
       body: JSON.stringify(supplier),
@@ -169,7 +169,7 @@ export const suppliersApi = {
   },
 
   updateSupplier: async (id, updates) => {
-    const response = await fetch(`${API_URL}/api/suppliers/${id}`, {
+    const response = await fetch(`${API_URL}/suppliers/${id}/`, {
       method: 'PUT',
       headers: createHeaders(),
       body: JSON.stringify(updates),
@@ -178,7 +178,7 @@ export const suppliersApi = {
   },
 
   deleteSupplier: async (id) => {
-    const response = await fetch(`${API_URL}/api/suppliers/${id}`, {
+    const response = await fetch(`${API_URL}/suppliers/${id}/`, {
       method: 'DELETE',
       headers: createHeaders(),
     });
@@ -196,21 +196,21 @@ export const salesApi = {
       }
     });
     
-    const response = await fetch(`${API_URL}/api/sales?${searchParams}`, {
+    const response = await fetch(`${API_URL}/sales?${searchParams}/`, {
       headers: createHeaders(),
     });
     return handleResponse(response);
   },
 
   getSale: async (id) => {
-    const response = await fetch(`${API_URL}/api/sales/${id}`, {
+    const response = await fetch(`${API_URL}/sales/${id}/`, {
       headers: createHeaders(),
     });
     return handleResponse(response);
   },
 
   createSale: async (sale) => {
-    const response = await fetch(`${API_URL}/api/sales`, {
+    const response = await fetch(`${API_URL}/sales/`, {
       method: 'POST',
       headers: createHeaders(),
       body: JSON.stringify(sale),
@@ -219,7 +219,7 @@ export const salesApi = {
   },
 
   processRefund: async (id, refundData) => {
-    const response = await fetch(`${API_URL}/api/sales/${id}`, {
+    const response = await fetch(`${API_URL}/sales/${id}/`, {
       method: 'PUT',
       headers: createHeaders(),
       body: JSON.stringify(refundData),
@@ -238,7 +238,7 @@ export const reportsApi = {
       }
     });
     
-    const response = await fetch(`${API_URL}/api/reports/sales?${searchParams}`, {
+    const response = await fetch(`${API_URL}/reports/sales?${searchParams}/`, {
       headers: createHeaders(),
     });
     return handleResponse(response);
@@ -252,7 +252,7 @@ export const reportsApi = {
       }
     });
     
-    const response = await fetch(`${API_URL}/api/reports/stock?${searchParams}`, {
+    const response = await fetch(`${API_URL}/reports/stock?${searchParams}/`, {
       headers: createHeaders(),
     });
     return handleResponse(response);
@@ -262,7 +262,7 @@ export const reportsApi = {
 // Dashboard API
 export const dashboardApi = {
   getSummary: async () => {
-    const response = await fetch(`${API_URL}/api/dashboard/summary`, {
+    const response = await fetch(`${API_URL}/dashboard/summary/`, {
       headers: createHeaders(),
     });
     return handleResponse(response);

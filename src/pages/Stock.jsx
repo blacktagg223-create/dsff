@@ -46,23 +46,28 @@ const Stock = () => {
     },
   });
 
+  console.log('Products data:', productsData);
+
   const stockItems = stockData?.data?.stockItems || [];
   const stockSummary = stockData?.data?.summary || {};
   const products = productsData?.data?.products || [];
 
+  console.log('Products :', products);
+
   // Merge stock data with product data for display
   const enrichedStockItems = stockItems.map(stockItem => {
-    const product = products.find(p => p.id === stockItem.productId);
+    const product = products.find(p => p.id === stockItem.product_id);
+    console.log('Product:', product);
     return {
       ...stockItem,
       ...product,
-      stock: stockItem.currentStock,
-      minStock: stockItem.minStock,
+      stock: stockItem.current_stock,
+      min_stock: stockItem.min_stock,
     };
   });
-
-  const lowStockProducts = enrichedStockItems.filter(p => p.currentStock <= p.minStock);
-  const outOfStockProducts = enrichedStockItems.filter(p => p.currentStock === 0);
+  console.log('Enriched stock items:', enrichedStockItems);
+  const lowStockProducts = enrichedStockItems.filter(p => p.current_stock <= p.min_stock);
+  const outOfStockProducts = enrichedStockItems.filter(p => p.current_stock === 0);
 
   const openStockModal = (product) => {
     setSelectedProduct(product);
@@ -87,12 +92,12 @@ const Stock = () => {
   };
 
   const getStockStatus = (product) => {
-    const currentStock = product.currentStock || product.stock;
-    const minStock = product.minStock;
-    
-    if (currentStock === 0) {
+    const current_stock = product.current_stock || product.stock;
+    const min_stock = product.min_stock;
+
+    if (current_stock === 0) {
       return { status: 'Rupture', color: 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400' };
-    } else if (currentStock <= minStock) {
+    } else if (current_stock <= min_stock) {
       return { status: 'Stock faible', color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400' };
     }
     return { status: 'En stock', color: 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' };
@@ -133,7 +138,7 @@ const Stock = () => {
           <Card.Content className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Total Produits</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stockSummary.totalProducts || 0}</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stockSummary.total_products || 0}</p>
             </div>
             <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20">
               <Package className="w-6 h-6 text-blue-600" />
@@ -146,7 +151,7 @@ const Stock = () => {
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Valeur du Stock</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                {(stockSummary.totalStockValue || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                {(stockSummary.total_stock_value || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'XOF' })}
               </p>
             </div>
             <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/20">
@@ -159,7 +164,7 @@ const Stock = () => {
           <Card.Content className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Stock Faible</p>
-              <p className="text-2xl font-bold text-orange-600">{stockSummary.lowStockCount || 0}</p>
+              <p className="text-2xl font-bold text-orange-600">{stockSummary.low_stock_count || 0}</p>
             </div>
             <div className="p-3 rounded-lg bg-orange-50 dark:bg-orange-900/20">
               <AlertTriangle className="w-6 h-6 text-orange-600" />
@@ -204,7 +209,7 @@ const Stock = () => {
             <Table.Body>
               {enrichedStockItems.map((product) => {
                 const { status, color } = getStockStatus(product);
-                const stockValue = (product.currentStock || product.stock) * (product.cost || 0);
+                const stockValue = (product.stock) * (product.cost || 1);
 
                 return (
                   <Table.Row key={product.id}>
@@ -230,13 +235,13 @@ const Stock = () => {
                       </span>
                     </Table.Cell>
                     <Table.Cell className="font-medium text-lg">
-                      {product.currentStock || product.stock}
+                      {product.current_stock || product.stock}
                     </Table.Cell>
                     <Table.Cell className="text-gray-600 dark:text-gray-400">
-                      {product.minStock}
+                      {product.min_stock}
                     </Table.Cell>
                     <Table.Cell className="font-medium">
-                      {stockValue.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                      {stockValue.toLocaleString('fr-FR', { style: 'currency', currency: 'XOF' })}
                     </Table.Cell>
                     <Table.Cell>
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${color}`}>
@@ -271,7 +276,7 @@ const Stock = () => {
             <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
               <p className="text-sm text-gray-600 dark:text-gray-400">Stock actuel:</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                {selectedProduct.currentStock || selectedProduct.stock} unités
+                {selectedProduct.current_stock || selectedProduct.stock} unités
               </p>
             </div>
 
@@ -305,9 +310,9 @@ const Stock = () => {
                   Nouveau stock après ajustement:
                 </p>
                 <p className="text-xl font-bold text-blue-700 dark:text-blue-300">
-                  {adjustmentType === 'add' 
-                    ? (selectedProduct.currentStock || selectedProduct.stock) + parseInt(quantity || 0)
-                    : Math.max(0, (selectedProduct.currentStock || selectedProduct.stock) - parseInt(quantity || 0))
+                  {adjustmentType === 'add'
+                    ? (selectedProduct.current_stock || selectedProduct.stock) + parseInt(quantity || 0)
+                    : Math.max(0, (selectedProduct.current_stock || selectedProduct.stock) - parseInt(quantity || 0))
                   } unités
                 </p>
               </div>
