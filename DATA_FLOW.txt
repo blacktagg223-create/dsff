@@ -1,0 +1,104 @@
+DATA FLOW DIAGRAM
+=================
+
+┌─────────────────────────────────────────────────────────────────┐
+│                        LOCALSTORAGE                             │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐         │
+│  │ erp_products │  │  erp_sales   │  │  erp_stock   │         │
+│  │   (12 items) │  │ (45+ sales)  │  │ (12 entries) │         │
+│  └──────────────┘  └──────────────┘  └──────────────┘         │
+└─────────────────────────────────────────────────────────────────┘
+           ▲                  ▲                  ▲
+           │                  │                  │
+           │     READ/WRITE   │    READ/WRITE   │
+           │                  │                  │
+┌─────────────────────────────────────────────────────────────────┐
+│                   src/services/fakeData.js                      │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │  • getFakeProducts()    - Returns products with stock    │  │
+│  │  • getFakeStock()       - Returns stock levels          │  │
+│  │  • getFakeSales()       - Returns sales history         │  │
+│  │  • addFakeSale()        - Creates new sale              │  │
+│  │  • updateStockAfterSale() - Decrements stock           │  │
+│  │  • getDashboardStats()  - Computes aggregated stats    │  │
+│  │  • getSalesReportData() - Generates report data        │  │
+│  │                                                          │  │
+│  │  Features:                                               │  │
+│  │  - Network latency simulation (200-600ms)               │  │
+│  │  - Automatic initialization                             │  │
+│  │  - Timestamp tracking                                    │  │
+│  └──────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
+           ▲
+           │
+           │ CALLED BY
+           │
+┌─────────────────────────────────────────────────────────────────┐
+│                    src/services/api.js                          │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │  USE_FAKE_API = !API_URL || API_URL === 'undefined'     │  │
+│  │                                                          │  │
+│  │  If USE_FAKE_API:                                        │  │
+│  │    ├─ productsApi.getProducts() → getFakeProducts()     │  │
+│  │    ├─ stockApi.getStock() → getFakeStock()              │  │
+│  │    ├─ salesApi.getSales() → getFakeSales()              │  │
+│  │    ├─ salesApi.createSale() → addFakeSale()             │  │
+│  │    ├─ dashboardApi.getSummary() → getDashboardStats()   │  │
+│  │    └─ reportsDataApi.getSalesReport() → ...             │  │
+│  │                                                          │  │
+│  │  Else: Uses real backend API                            │  │
+│  └──────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
+           ▲         ▲         ▲
+           │         │         │
+    ┌──────┘         │         └──────┐
+    │                │                │
+    │                │                │
+┌───────┐      ┌───────────┐    ┌───────────┐
+│DASHBD │      │  VENTES   │    │ RAPPORTS  │
+│  PAGE │      │   PAGE    │    │   PAGE    │
+└───────┘      └───────────┘    └───────────┘
+
+USER INTERACTION FLOW
+=====================
+
+1. USER VISITS DASHBOARD:
+   • Loads products, stock, dashboard stats
+   • Shows: Revenue, Avg Ticket, Low Stock alerts
+   • Charts: 7-day sales evolution, transactions
+   • "Last updated" timestamp
+
+2. USER MAKES A SALE (POS):
+   • Selects products, adds to cart
+   • Validates stock availability
+   • Confirms payment (cash/card)
+   • Triggers: addFakeSale()
+   • Updates: localStorage sales + stock
+   • Invalidates: React Query caches
+   • Shows: "Recent Sales" panel (last 5)
+
+3. USER VIEWS REPORTS:
+   • Selects report type (Ventes/Stocks/Revenus)
+   • Selects period (7d/30d/90d)
+   • Loads: getSalesReportData(period)
+   • Displays: Dynamic charts
+   • Exports: CSV with formatted data
+
+4. DATA SYNCHRONIZATION:
+   After sale → React Query invalidates:
+   ├─ ['recentSales']
+   ├─ ['dashboardStats']
+   ├─ ['stock']
+   └─ ['products']
+   
+   Result: All pages auto-refresh with latest data
+
+CURRENCY FORMATTING
+===================
+All amounts displayed in CFA Franc (XOF):
+• Format: toLocaleString('fr-FR', {
+    style: 'currency',
+    currency: 'XOF',
+    minimumFractionDigits: 0
+  })
+• Example: "2 500 XOF" (no decimals)
