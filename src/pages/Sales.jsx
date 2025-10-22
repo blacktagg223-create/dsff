@@ -21,6 +21,7 @@ import toast from 'react-hot-toast';
 const Sales = () => {
   const queryClient = useQueryClient();
   const [cart, setCart] = useState([]);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   const [skuInput, setSkuInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -36,6 +37,12 @@ const Sales = () => {
     queryFn: () => productsApi.getProducts(),
   });
 
+  // Future API integration (commented out for now)
+  // const createSaleMutation = useMutation({
+  //   mutationFn: salesApi.createSale,
+  //   onSuccess: () => toast.success('Vente enregistrée sur le serveur !'),
+  //   onError: (err) => toast.error('Erreur lors de la création de la vente'),
+  // });
   const products = productsData?.data?.products || [];
 
   console.log('Sales - Products loaded:', products.length);
@@ -98,52 +105,61 @@ const Sales = () => {
     toast.success(`${product.name} ajouté au panier`);
   };
 
-  const handleProcessPayment = () => {
+  const handleProcessPayment = async () => {
     if (cart.length === 0) {
       toast.error('Le panier est vide');
       return;
     }
 
-    console.log('Sales - Processing payment:', {
-      items: cart,
-      total: total,
-      paymentMethod: paymentMethod
-    });
+    setIsProcessingPayment(true);
 
-    // Simulate sale processing
-    const saleData = {
-      id: Date.now(),
-      transactionId: `TXN-${Date.now()}`,
-      date: new Date().toISOString(),
-      items: cart.map(item => ({
-        productId: item.id,
-        sku: item.sku,
-        name: item.name,
-        quantity: item.quantity,
-        unitPrice: item.price,
-        totalPrice: item.price * item.quantity
-      })),
-      subtotal: subtotal,
-      tax: tax,
-      total: total,
-      paymentMethod: paymentMethod,
-      cashier: 'Current User', // This should come from auth context
-      customerId: null,
-      status: 'completed'
-    };
+    try {
+      // Simulate small delay
+      await new Promise(r => setTimeout(r, 600));
 
-    // Save to localStorage for persistence
-    const existingSales = JSON.parse(localStorage.getItem('sales') || '[]');
-    existingSales.push(saleData);
-    localStorage.setItem('sales', JSON.stringify(existingSales));
+      console.log('Sales - Processing payment:', {
+        items: cart,
+        total: total,
+        paymentMethod: paymentMethod
+      });
 
-    console.log('Sales - Sale completed:', saleData);
+      const saleData = {
+        id: Date.now(),
+        transactionId: `TXN-${Date.now()}`,
+        date: new Date().toISOString(),
+        items: cart.map(item => ({
+          productId: item.id,
+          sku: item.sku,
+          name: item.name,
+          quantity: item.quantity,
+          unitPrice: item.price,
+          totalPrice: item.price * item.quantity
+        })),
+        subtotal,
+        tax,
+        total,
+        paymentMethod,
+        cashier: 'Current User',
+        customerId: null,
+        status: 'completed'
+      };
 
-    // Clear cart and close modal
-    setCart([]);
-    setIsPaymentModalOpen(false);
-    setPaymentMethod('cash');
-    toast.success('Vente enregistrée avec succès !');
+      const existingSales = JSON.parse(localStorage.getItem('sales') || '[]');
+      existingSales.push(saleData);
+      localStorage.setItem('sales', JSON.stringify(existingSales));
+
+      console.log('Sales - Sale completed:', saleData);
+
+      toast.success('Vente enregistrée avec succès !');
+      setCart([]);
+      setIsPaymentModalOpen(false);
+      setPaymentMethod('cash');
+    } catch (err) {
+      toast.error('Erreur lors du traitement du paiement');
+      console.error(err);
+    } finally {
+      setIsProcessingPayment(false);
+    }
   };
 
   if (isLoading) {
@@ -352,7 +368,7 @@ const Sales = () => {
                 <Button
                   className="w-full"
                   size="lg"
-                  loading={createSaleMutation.isLoading}
+                  loading={isProcessingPayment}
                   onClick={() => setIsPaymentModalOpen(true)}
                 >
                   <CreditCard className="w-4 h-4 mr-2" />
@@ -482,12 +498,13 @@ const Sales = () => {
               variant="outline"
               className="flex-1"
               onClick={() => setIsPaymentModalOpen(false)}
+              disabled={isProcessingPayment}
             >
               Annuler
             </Button>
             <Button
               className="flex-1"
-              loading={false}
+              loading={isProcessingPayment}
               onClick={handleProcessPayment}
             >
               Confirmer le paiement
