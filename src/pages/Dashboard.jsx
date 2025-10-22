@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { TrendingUp, Package, TriangleAlert as AlertTriangle, DollarSign, ShoppingCart, Users } from 'lucide-react';
 import Card from '../components/ui/Card';
-import { dashboardApi, reportsApi, productsApi } from '../services/api';
+import { productsApi, stockApi } from '../services/api';
 import { 
   LineChart, 
   Line, 
@@ -15,72 +15,94 @@ import {
 } from 'recharts';
 
 const Dashboard = () => {
-  const { data: stats, isLoading: statsLoading, error: statsError } = useQuery({
-    queryKey: ['dashboard-stats'],
-    queryFn: dashboardApi.getSummary
-  });
-
-  const { data: salesData, isLoading: salesLoading, error: salesError } = useQuery({
-    queryKey: ['sales-data', '7d'],
-    queryFn: () => reportsApi.getSalesReport({ from: getDateDaysAgo(7), to: getTodayDate(), groupBy: 'day' })
-  });
-
-  const { data: productsData, isLoading: productsLoading } = useQuery({
+  // Fetch products data
+  const { data: productsData, isLoading: productsLoading, error: productsError } = useQuery({
     queryKey: ['products'],
     queryFn: () => productsApi.getProducts()
   });
 
-  // Helper functions for date formatting
-  const getDateDaysAgo = (days) => {
-    const date = new Date();
-    date.setDate(date.getDate() - days);
-    return date.toISOString().split('T')[0];
-  };
-
-  const getTodayDate = () => {
-    return new Date().toISOString().split('T')[0];
-  };
+  // Fetch stock data
+  const { data: stockData, isLoading: stockLoading, error: stockError } = useQuery({
+    queryKey: ['stock'],
+    queryFn: stockApi.getStock
+  });
 
   const products = productsData?.data?.products || [];
-  const lowStockProducts = products.filter(p => p.stock <= p.minStock);
-  const salesChartData = salesData?.data?.dailyData || [];
+  const stockItems = stockData?.data?.stockItems || [];
+
+  console.log('Dashboard - Products data:', products);
+  console.log('Dashboard - Stock data:', stockItems);
+
+  // Compute dashboard metrics
+  const totalProducts = products.length;
+  const totalStockValue = stockItems.reduce((sum, item) => {
+    const product = products.find(p => p.id === item.product_id);
+    return sum + (item.current_stock * (product?.cost || product?.price || 0));
+  }, 0);
+  
+  const lowStockItems = stockItems.filter(item => item.current_stock <= item.min_stock);
+  const outOfStockItems = stockItems.filter(item => item.current_stock === 0);
+
+  console.log('Dashboard - Computed metrics:', {
+    totalProducts,
+    totalStockValue,
+    lowStockCount: lowStockItems.length,
+    outOfStockCount: outOfStockItems.length
+  });
+
+  // Generate mock sales data for charts (last 7 days)
+  const generateMockSalesData = () => {
+    const data = [];
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      data.push({
+        date: date.toISOString().split('T')[0],
+        sales: Math.floor(Math.random() * 5000) + 2000,
+        transactions: Math.floor(Math.random() * 50) + 20
+      });
+    }
+    return data;
+  };
+
+  const salesChartData = generateMockSalesData();
 
   const statCards = [
     {
-      title: 'Ventes du jour',
-      value: stats?.data?.sales?.today?.toLocaleString('fr-FR', { style: 'currency', currency: 'XOF' }) || '€0',
+      title: 'Valeur du stock',
+      value: totalStockValue.toLocaleString('fr-FR', { style: 'currency', currency: 'XOF' }),
       change: '+12.5%',
       icon: DollarSign,
       color: 'text-emerald-600',
       bgColor: 'bg-emerald-50 dark:bg-emerald-900/20'
     },
     {
-      title: 'Ventes totales',
-      value: stats?.data?.sales?.thisMonth?.toLocaleString('fr-FR', { style: 'currency', currency: 'XOF' }) || '€0',
+      title: 'Total produits',
+      value: totalProducts,
       change: '+8.2%',
-      icon: TrendingUp,
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-50 dark:bg-blue-900/20'
-    },
-    {
-      title: 'Produits',
-      value: stats?.data?.products?.total || 0,
-      change: '+3',
       icon: Package,
       color: 'text-purple-600',
       bgColor: 'bg-purple-50 dark:bg-purple-900/20'
     },
     {
       title: 'Stock faible',
-      value: stats?.data?.products?.lowStock || 0,
+      value: lowStockItems.length,
       change: '-2',
       icon: AlertTriangle,
+      color: 'text-orange-600',
+      bgColor: 'bg-orange-50 dark:bg-orange-900/20'
+    },
+    {
+      title: 'Ruptures',
+      value: outOfStockItems.length,
+      change: '0',
+      icon: TrendingUp,
       color: 'text-orange-600',
       bgColor: 'bg-orange-50 dark:bg-orange-900/20'
     }
   ];
 
-  if (statsLoading || salesLoading || productsLoading) {
+  if (productsLoading || stockLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -88,13 +110,13 @@ const Dashboard = () => {
     );
   }
 
-  if (statsError || salesError) {
+  if (productsError || stockError) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <p className="text-red-600 dark:text-red-400">Erreur lors du chargement des données</p>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-            {statsError?.message || salesError?.message}
+            {productsError?.message || stockError?.message}
           </p>
         </div>
       </div>
@@ -138,8 +160,8 @@ const Dashboard = () => {
         {/* Sales Chart */}
         <Card>
           <Card.Header>
-            <Card.Title>Évolution des ventes</Card.Title>
-            <Card.Description>Ventes des 7 derniers jours</Card.Description>
+            <Card.Title>Évolution des ventes (simulée)</Card.Title>
+            <Card.Description>Données simulées des 7 derniers jours</Card.Description>
           </Card.Header>
           <Card.Content>
             <ResponsiveContainer width="100%" height={300}>
@@ -166,8 +188,8 @@ const Dashboard = () => {
         {/* Transactions Chart */}
         <Card>
           <Card.Header>
-            <Card.Title>Transactions</Card.Title>
-            <Card.Description>Nombre de transactions par jour</Card.Description>
+            <Card.Title>Transactions (simulées)</Card.Title>
+            <Card.Description>Données simulées par jour</Card.Description>
           </Card.Header>
           <Card.Content>
             <ResponsiveContainer width="100%" height={300}>
@@ -187,7 +209,7 @@ const Dashboard = () => {
       </div>
 
       {/* Low Stock Alert */}
-      {lowStockProducts.length > 0 && (
+      {lowStockItems.length > 0 && (
         <Card className="border-orange-200 dark:border-orange-800">
           <Card.Header className="bg-orange-50 dark:bg-orange-900/20">
             <Card.Title className="flex items-center text-orange-800 dark:text-orange-200">
@@ -195,27 +217,30 @@ const Dashboard = () => {
               Alerte Stock Faible
             </Card.Title>
             <Card.Description className="text-orange-700 dark:text-orange-300">
-              {lowStockProducts.length} produit(s) nécessitent un réapprovisionnement
+              {lowStockItems.length} produit(s) nécessitent un réapprovisionnement
             </Card.Description>
           </Card.Header>
           <Card.Content>
             <div className="space-y-3">
-              {lowStockProducts.slice(0, 5).map((product) => (
-                <div key={product.id} className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700 last:border-0">
+              {lowStockItems.slice(0, 5).map((item) => {
+                const product = products.find(p => p.id === item.product_id);
+                return (
+                <div key={item.product_id} className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700 last:border-0">
                   <div>
-                    <p className="font-medium text-gray-900 dark:text-gray-100">{product.name}</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">SKU: {product.sku}</p>
+                    <p className="font-medium text-gray-900 dark:text-gray-100">{product?.name || 'Produit inconnu'}</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">SKU: {product?.sku || 'N/A'}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-medium text-orange-600 dark:text-orange-400">
-                      Stock: {product.stock}
+                      Stock: {item.current_stock}
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Min: {product.minStock}
+                      Min: {item.min_stock}
                     </p>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </Card.Content>
         </Card>

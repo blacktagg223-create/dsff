@@ -28,31 +28,21 @@ const Sales = () => {
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('cash');
 
+  console.log('Sales - Current cart:', cart);
+
   // Fetch products
   const { data: productsData, isLoading, error } = useQuery({
     queryKey: ['products'],
     queryFn: () => productsApi.getProducts(),
   });
 
-  // Create sale mutation
-  const createSaleMutation = useMutation({
-    mutationFn: salesApi.createSale,
-    onSuccess: () => {
-      queryClient.invalidateQueries(['sales']);
-      setCart([]);
-      setIsPaymentModalOpen(false);
-      setPaymentMethod('cash');
-      toast.success('Vente enregistrée avec succès !');
-    },
-    onError: (error) => {
-      toast.error(`Erreur: ${error.message}`);
-    },
-  });
-
   const products = productsData?.data?.products || [];
+
+  console.log('Sales - Products loaded:', products.length);
 
   // Cart management functions
   const addToCart = (product, quantity = 1) => {
+    console.log('Sales - Adding to cart:', product.name, 'quantity:', quantity);
     const existingItem = cart.find(item => item.id === product.id);
     
     if (existingItem) {
@@ -67,6 +57,7 @@ const Sales = () => {
   };
 
   const removeFromCart = (productId) => {
+    console.log('Sales - Removing from cart:', productId);
     setCart(cart.filter(item => item.id !== productId));
   };
 
@@ -113,20 +104,46 @@ const Sales = () => {
       return;
     }
 
+    console.log('Sales - Processing payment:', {
+      items: cart,
+      total: total,
+      paymentMethod: paymentMethod
+    });
+
+    // Simulate sale processing
     const saleData = {
+      id: Date.now(),
+      transactionId: `TXN-${Date.now()}`,
+      date: new Date().toISOString(),
       items: cart.map(item => ({
         productId: item.id,
+        sku: item.sku,
+        name: item.name,
         quantity: item.quantity,
-        unitPrice: item.price
+        unitPrice: item.price,
+        totalPrice: item.price * item.quantity
       })),
+      subtotal: subtotal,
+      tax: tax,
+      total: total,
       paymentMethod: paymentMethod,
       cashier: 'Current User', // This should come from auth context
       customerId: null,
-      discount: 0,
-      notes: ''
+      status: 'completed'
     };
 
-    createSaleMutation.mutate(saleData);
+    // Save to localStorage for persistence
+    const existingSales = JSON.parse(localStorage.getItem('sales') || '[]');
+    existingSales.push(saleData);
+    localStorage.setItem('sales', JSON.stringify(existingSales));
+
+    console.log('Sales - Sale completed:', saleData);
+
+    // Clear cart and close modal
+    setCart([]);
+    setIsPaymentModalOpen(false);
+    setPaymentMethod('cash');
+    toast.success('Vente enregistrée avec succès !');
   };
 
   if (isLoading) {
@@ -470,7 +487,7 @@ const Sales = () => {
             </Button>
             <Button
               className="flex-1"
-              loading={createSaleMutation.isLoading}
+              loading={false}
               onClick={handleProcessPayment}
             >
               Confirmer le paiement
