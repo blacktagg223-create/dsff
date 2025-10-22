@@ -122,6 +122,98 @@ const Reports = () => {
 
   const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
 
+  // Export functionality
+  const handleExport = () => {
+    try {
+      // Determine what data to export based on available data
+      let dataToExport = [];
+      let filename = `rapport_${new Date().toISOString().split('T')[0]}`;
+
+      // Priority: Stock comparison data (most detailed)
+      if (stockComparisonData && stockComparisonData.length > 0) {
+        dataToExport = stockComparisonData.map(item => ({
+          'Produit': item.name,
+          'Stock Actuel': item.currentStock,
+          'Stock Minimum': item.minStock,
+          'Valeur Stock (XOF)': item.stockValue.toLocaleString('fr-FR'),
+          'Statut': item.currentStock <= item.minStock ? 'Stock faible' : 'Stock normal'
+        }));
+        filename = `rapport_stock_${new Date().toISOString().split('T')[0]}`;
+      }
+      // Fallback: Category data
+      else if (categoryData && categoryData.length > 0) {
+        dataToExport = categoryData.map(item => ({
+          'Catégorie': item.category,
+          'Nombre de Produits': item.products,
+          'Valeur Stock (XOF)': item.value.toLocaleString('fr-FR')
+        }));
+        filename = `rapport_categories_${new Date().toISOString().split('T')[0]}`;
+      }
+      // Fallback: Top products
+      else if (topProducts && topProducts.length > 0) {
+        dataToExport = topProducts.map(item => ({
+          'Produit': item.name,
+          'Stock': item.stock,
+          'Valeur (XOF)': item.value.toLocaleString('fr-FR')
+        }));
+        filename = `rapport_top_produits_${new Date().toISOString().split('T')[0]}`;
+      }
+      // Fallback: Mock sales data
+      else if (mockSalesData && mockSalesData.length > 0) {
+        dataToExport = mockSalesData.map(item => ({
+          'Date': item.date,
+          'Ventes (XOF)': item.sales.toLocaleString('fr-FR'),
+          'Transactions': item.transactions
+        }));
+        filename = `rapport_ventes_${new Date().toISOString().split('T')[0]}`;
+      }
+
+      if (!dataToExport.length) {
+        toast.error('Aucune donnée à exporter');
+        return;
+      }
+
+      console.log('Reports - Exporting data:', dataToExport);
+
+      // Convert to CSV
+      const headers = Object.keys(dataToExport[0]);
+      const csvRows = [
+        headers.join(','), // header row
+        ...dataToExport.map(row =>
+          headers.map(header => {
+            const value = row[header] ?? '';
+            // Escape quotes and wrap in quotes if contains comma or quote
+            const stringValue = value.toString().replace(/"/g, '""');
+            return stringValue.includes(',') || stringValue.includes('"') 
+              ? `"${stringValue}"` 
+              : stringValue;
+          }).join(',')
+        )
+      ];
+      const csvString = csvRows.join('\n');
+
+      // Create and trigger download
+      const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${filename}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // Cleanup
+      URL.revokeObjectURL(url);
+
+      toast.success('Rapport exporté avec succès');
+      console.log('Reports - Export completed:', filename);
+    } catch (error) {
+      console.error('Reports - Export error:', error);
+      toast.error('Impossible d\'exporter le rapport');
+    }
+  };
+
   const periodOptions = [
     { value: '7d', label: '7 derniers jours' },
     { value: '30d', label: '30 derniers jours' },
@@ -169,7 +261,7 @@ const Reports = () => {
               <option key={option.value} value={option.value}>{option.label}</option>
             ))}
           </select>
-          <Button variant="outline">
+          <Button variant="outline" onClick={handleExport}>
             <Download className="w-4 h-4 mr-2" />
             Exporter
           </Button>
